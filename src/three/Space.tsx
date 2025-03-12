@@ -22,6 +22,8 @@ function Building({
   const [hovered, setHovered] = useState(false);
   const [clicked, setClicked] = useState(false);
   const [hoverPos, setHoverPos] = useState<THREE.Vector3 | null>(null);
+  const [showTranslations, setShowTranslations] = useState(false);
+  const [showAdditionalInfo, setShowAdditionalInfo] = useState(false);
   return (
     <mesh
       onPointerOver={(e) => {
@@ -43,32 +45,265 @@ function Building({
       rotation={[-Math.PI / 2, 0, 0]}
     >
       <extrudeGeometry args={[shape, extrudeSettings]} />
-      <meshStandardMaterial
-        color={hovered || clicked ? "#007bff" : "#9da0a3"}
-      />
+      <meshStandardMaterial color={hovered || clicked ? "#007bff" : "#9da0a3"} />
       {(hovered || clicked) && hoverPos && (
-        <Html
-          position={[
-            hoverPos.x,
-            hoverPos.y + extrudeSettings.depth + 0.5,
-            hoverPos.z,
-          ]}
-          center
-        >
+        <Html position={[hoverPos.x, hoverPos.y + extrudeSettings.depth + 0.5, hoverPos.z]} center>
           <div
+            role="dialog"
+            aria-label={tags.name || "Building Information"}
             style={{
               color: "#000000",
               backgroundColor: "#ffffff96",
               backdropFilter: "blur(8px)",
               border: "none",
-              padding: "0.5rem 1rem",
-              borderRadius: "8px",
-              fontWeight: "300",
-              fontSize: "12px",
-              outline: "rgba(240, 240, 244, 0.51) solid 0.1rem",
+              padding: "14px",
+              borderRadius: "10px",
+              fontFamily: "system-ui, -apple-system, sans-serif",
+              fontSize: "13px",
+              width: "200px",
+              boxShadow: "0 2px 14px rgba(0, 0, 0, 0.16)",
+              transition: "all 0.2s ease-in-out",
             }}
           >
-            <div>{JSON.stringify(tags)}</div>
+            <div
+              style={{
+                fontWeight: "600",
+                fontSize: "15px",
+                borderBottom: tags.name ? "1px solid rgba(0, 0, 0, 0.08)" : "none",
+                paddingBottom: tags.name ? "6px" : "0",
+                marginBottom: tags.name ? "8px" : "4px",
+              }}
+            >
+              {tags.name || "Building Information"}
+            </div>
+            {["building", "height", "building:levels", "amenity", "denomination"].map(
+              (key) =>
+                tags[key] &&
+                (key !== "building" || tags[key] !== "yes") && (
+                  <div
+                    key={key}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      margin: "4px 0",
+                    }}
+                  >
+                    <span style={{ fontWeight: "500", color: "#5f6368" }}>
+                      {key === "building"
+                        ? "Type"
+                        : key === "height"
+                        ? "Height"
+                        : key === "building:levels"
+                        ? "Levels"
+                        : key === "amenity"
+                        ? "Facility"
+                        : key === "denomination"
+                        ? "Denomination"
+                        : key.replace(/_/g, " ")}
+                      :
+                    </span>
+                    <span style={{ textTransform: "capitalize" }}>
+                      {key === "height" ? `${tags[key]} m` : tags[key]}
+                    </span>
+                  </div>
+                )
+            )}
+            {[
+              "addr:street",
+              "addr:housenumber",
+              "addr:district",
+              "addr:city",
+              "addr:postcode",
+            ].some((key) => tags[key]) && (
+              <div
+                style={{
+                  margin: "10px 0 8px",
+                  borderTop: "1px solid rgba(0, 0, 0, 0.08)",
+                  paddingTop: "8px",
+                }}
+              >
+                <div style={{ fontWeight: "500", marginBottom: "4px", color: "#5f6368" }}>
+                  Address
+                </div>
+                <div style={{ marginLeft: "4px", fontSize: "12px", color: "#5f6368" }}>
+                  {[
+                    [tags["addr:street"], tags["addr:housenumber"]].filter(Boolean).join(" "),
+                    tags["addr:district"],
+                    tags["addr:city"],
+                    tags["addr:postcode"],
+                  ]
+                    .filter(Boolean)
+                    .join(", ")}
+                </div>
+              </div>
+            )}
+            {Object.entries(tags).filter(
+              ([key]) =>
+                ![
+                  "building",
+                  "name",
+                  "height",
+                  "building:levels",
+                  "source",
+                  "amenity",
+                  "denomination",
+                ].includes(key) &&
+                !key.startsWith("addr:") &&
+                !key.startsWith("name:") &&
+                !key.startsWith("alt_name:")
+            ).length > 0 && (
+              <div
+                style={{
+                  margin: "10px 0 4px",
+                  borderTop: "1px solid rgba(0, 0, 0, 0.08)",
+                  paddingTop: "8px",
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: "500",
+                    marginBottom: "4px",
+                    color: "#5f6368",
+                    cursor: "pointer",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                  onClick={() => setShowAdditionalInfo(!showAdditionalInfo)}
+                >
+                  Additional Information
+                  <span>{showAdditionalInfo ? "▲" : "▼"}</span>
+                </div>
+                {showAdditionalInfo && (
+                  <div>
+                    {Object.entries(tags)
+                      .filter(
+                        ([key]) =>
+                          ![
+                            "building",
+                            "name",
+                            "height",
+                            "building:levels",
+                            "source",
+                            "amenity",
+                            "denomination",
+                          ].includes(key) &&
+                          !key.startsWith("addr:") &&
+                          !key.startsWith("name:") &&
+                          !key.startsWith("alt_name:")
+                      )
+                      .map(([key, value]) => {
+                        if (
+                          key === "description" ||
+                          (typeof value === "string" && value.length > 80)
+                        ) {
+                          return (
+                            <div key={key} style={{ margin: "8px 0" }}>
+                              <div
+                                style={{ fontWeight: "500", color: "#5f6368", marginBottom: "4px" }}
+                              >
+                                {key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ")}
+                              </div>
+                              <div
+                                style={{
+                                  textAlign: "left",
+                                  fontSize: "12px",
+                                  color: "#5f6368",
+                                  fontWeight: "400",
+                                  textWrap: "wrap",
+                                  whiteSpace: "pre-wrap",
+                                  lineHeight: "1.4",
+                                  backgroundColor: "rgba(0,0,0,0.02)",
+                                  padding: "6px 8px",
+                                  borderRadius: "4px",
+                                }}
+                              >
+                                {String(value)}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return (
+                          <div
+                            key={key}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              margin: "4px 0",
+                            }}
+                          >
+                            <span
+                              style={{
+                                fontWeight: "700",
+                                color: "#5f6368",
+                                textAlign: "left",
+                              }}
+                            >
+                              {key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, " ")}:
+                            </span>
+                            <span
+                              style={{
+                                textTransform: "capitalize",
+                                fontWeight: "400",
+                                textAlign: "right",
+                              }}
+                            >
+                              {String(value)}
+                            </span>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+              </div>
+            )}
+            {Object.entries(tags).filter(([key]) => key.startsWith("name:")).length > 0 && (
+              <div
+                style={{
+                  margin: "10px 0 4px",
+                  borderTop: "1px solid rgba(0, 0, 0, 0.08)",
+                  paddingTop: "8px",
+                  textAlign: "right",
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: "500",
+                    marginBottom: "4px",
+                    color: "#5f6368",
+                    cursor: "pointer",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                  onClick={() => setShowTranslations(!showTranslations)}
+                >
+                  Name Translations
+                  <span>{showTranslations ? "▲" : "▼"}</span>
+                </div>
+                {showTranslations && (
+                  <div>
+                    {Object.entries(tags)
+                      .filter(([key]) => key.startsWith("name:"))
+                      .map(([key, value]) => (
+                        <div
+                          key={key}
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            margin: "4px 0",
+                          }}
+                        >
+                          <span style={{ fontWeight: "500", color: "#5f6368" }}>
+                            {key.replace("name:", "").toUpperCase()}:
+                          </span>
+                          <span style={{ textTransform: "capitalize" }}>{String(value)}</span>
+                        </div>
+                      ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </Html>
       )}
@@ -116,9 +351,7 @@ function Roads({ area }: { area: any }) {
           return new THREE.Vector3(v.x, 0.1, -v.y);
         });
 
-        const lineGeometry: any = new THREE.BufferGeometry().setFromPoints(
-          points
-        );
+        const lineGeometry: any = new THREE.BufferGeometry().setFromPoints(points);
 
         return <Line points={points} color="#34f516" lineWidth={1}></Line>;
       })}
@@ -160,8 +393,7 @@ export function Export() {
   const exportGLB = () => {
     const sceneClone = scene.clone(true);
     sceneClone.traverse((child) => {
-      if (child.userData && child.userData.skipExport === true)
-        child.parent?.remove(child);
+      if (child.userData && child.userData.skipExport === true) child.parent?.remove(child);
       if ((child as any).isHtml === true) child.parent?.remove(child);
     });
     const exporter = new GLTFExporter();
@@ -219,9 +451,7 @@ export function Space() {
     }> = [];
     areas.forEach((bld: any) => {
       if (!bld.geometry || bld.geometry.length < 3) return;
-      const shapePoints = bld.geometry.map((pt: any) =>
-        project(pt.lat, pt.lng)
-      );
+      const shapePoints = bld.geometry.map((pt: any) => project(pt.lat, pt.lng));
       if (!shapePoints[0].equals(shapePoints[shapePoints.length - 1]))
         shapePoints.push(shapePoints[0]);
       const shape = new THREE.Shape(shapePoints);
@@ -248,13 +478,7 @@ export function Space() {
   return (
     <Canvas camera={{ fov: 90, near: 0.1, far: 7000 }}>
       <ambientLight intensity={Math.PI / 2} />
-      <spotLight
-        position={[10, 10, 10]}
-        angle={0.15}
-        penumbra={1}
-        decay={0}
-        intensity={Math.PI}
-      />
+      <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} decay={0} intensity={Math.PI} />
       {buildingsData.map((item, index) => (
         <Building
           key={index}
@@ -268,12 +492,7 @@ export function Space() {
       <pointLight position={[-10, -10, -10]} decay={0} intensity={Math.PI} />
       <Car />
       <Export />
-      <Sky
-        distance={450000}
-        sunPosition={[0, 1, 0]}
-        inclination={0}
-        azimuth={0.25}
-      />
+      <Sky distance={450000} sunPosition={[0, 1, 0]} inclination={0} azimuth={0.25} />
       <Environment preset="city" />
     </Canvas>
   );
